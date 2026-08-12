@@ -1,0 +1,86 @@
+# Builds the documentation from its source in memhtml/memhtml and publishes it at this origin's root.
+#
+# The site is an ORG site, so it serves from `/` — which is the reason this workflow lives here rather
+# than in the source repository. A project site would serve from `/memhtml`, and a base segment is not
+# cosmetic: it is a standing source of defects, because a link is correct on whichever surface its
+# producer prefixed and wrong on the other. At the root every consumer of the base becomes a no-op.
+#
+# The source stays in memhtml/memhtml beside the code it documents, so a doc still ships in the same
+# commit as the change it describes. Only the publishing moves.
+#
+# No credential: memhtml/memhtml is public, so checking it out needs no token, and GITHUB_TOKEN cannot
+# write to another repository anyway. The cost is freshness — a push there does not trigger this. The
+# schedule bounds the lag and workflow_dispatch removes it on demand.
+name: docs
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:17 UTC daily. Off the hour on purpose: the top of an hour is when GitHub's scheduled-job
+    # queue is deepest, and a cron there is the one most likely to be delayed or dropped.
+    - cron: "17 6 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # This repository, for the files a docs build does not produce: robots.txt and /.well-known/,
+      # both of which are reachable only from an origin root and so cannot live in the source repo's
+      # own site.
+      - uses: actions/checkout@v7
+        with:
+          path: root
+      # The documentation source. Pinned to the default branch by name rather than a SHA: this is a
+      # publisher, and its job is to serve what main says today.
+      - uses: actions/checkout@v7
+        with:
+          repository: memhtml/memhtml
+          ref: main
+          path: src
+      # The toolchain comes from the source repo's mise.toml and mise.lock, so this workflow declares
+      # no node or pnpm version of its own and cannot drift from the gate that tests the site.
+      - uses: jdx/mise-action@v4
+        with:
+          working_directory: src
+      - run: echo "PNPM_STORE=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+        working-directory: src
+      - uses: actions/cache@v6
+        with:
+          path: ${{ env.PNPM_STORE }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('src/pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+      - run: mise run install:ci
+        working-directory: src
+      # DOCS_BASE is the production default in astro.config.ts already; it is passed explicitly so this
+      # workflow states the contract it depends on rather than inheriting it silently.
+      - run: DOCS_BASE=/ DOCS_ORIGIN=https://memhtml.github.io mise run docs:build
+        working-directory: src
+      # Assemble: the built site, then this repository's origin-root files on top.
+      - run: |
+          mkdir -p site
+          cp -R src/apps/docs/dist/. site/
+          cp root/robots.txt site/robots.txt
+          cp -R root/.well-known site/.well-known
+      # include-hidden-files is REQUIRED. The action tars with `--exclude=.[^/]*` by default, which
+      # would silently drop /.well-known/ — the site would build, deploy, and serve a 404 there with
+      # nothing having failed.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+          include-hidden-files: true
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Scoped to this job: the build job runs code from another repository and never holds these.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
