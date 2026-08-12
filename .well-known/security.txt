@@ -1,0 +1,6 @@
+# RFC 9116. Reachable only from the origin root, which a project site cannot serve.
+Contact: https://github.com/memhtml/memhtml/security/advisories/new
+Expires: 2027-08-12T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://memhtml.github.io/.well-known/security.txt
+Policy: https://github.com/memhtml/memhtml/blob/main/SECURITY.md

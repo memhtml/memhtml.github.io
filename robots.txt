@@ -1,0 +1,12 @@
+# The docs live at https://memhtml.github.io/memhtml/ — a project site under this origin.
+# robots.txt must sit at the origin root to be found at all (RFC 9309 §2.3), and a project
+# site cannot serve one, which is the only reason this repository exists.
+#
+# Crawling is allowed, deliberately and including AI crawlers. memhtml is a memory store for
+# agents and its documentation is written to be read by them: each page is served as Markdown
+# at its own path with a .md suffix, and /memhtml/llms.txt indexes the whole corpus.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://memhtml.github.io/memhtml/sitemap-index.xml
