@@ -13,3 +13,10 @@ origin root by their own specifications:
 
 Nothing here is generated. If you are looking for the docs, their source is in the other
 repository under `apps/docs`.
+
+## Why `.nojekyll` is here and not in the docs repository
+
+This repository publishes from a branch, and that path runs Jekyll, which excludes dotfiles — so
+`/.well-known/` would silently never appear. The docs repository deploys through GitHub Actions
+instead, where no Jekyll step exists and the file would be stripped from the upload artifact anyway.
+Same platform, opposite answer, decided by the publishing source.
